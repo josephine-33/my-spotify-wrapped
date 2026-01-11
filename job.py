@@ -27,14 +27,14 @@ sp = spotipy.Spotify(
     )
 )
 
-# database helpers
+# database connection
 
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
         user=os.environ["MYSQL_USER"],
         password=os.environ["MYSQL_PWD"],
-        database="spotify"
+        database="spotify_stats_2026"
     )
 
 # SQL statements
@@ -46,10 +46,38 @@ WHERE id=1;
 """
 
 INSERT_TRACK = """
-INSERT INTO tracks (track_id, name, duration_ms, explicit, popularity)
-VALUES (%s, %s, %s, %s, %s)
+INSERT INTO tracks (track_id, name, album_id, duration_ms, explicit, popularity)
+VALUES (%s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    album_id = VALUES(album_id),
+    duration_ms = VALUES(duration_ms),
+    explicit = VALUES(explicit),
     popularity = VALUES(popularity);
+"""
+
+INSERT_ALBUM = """
+INSERT INTO albums (album_id, name, release_date, total_tracks, album_type)
+VALUES (%s, %s, %s, %s, %s)
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    release_date = VALUES(release_date),
+    total_tracks = VALUES(total_tracks),
+    album_type = VALUES(album_type);
+"""
+
+INSERT_ARTIST = """
+INSERT INTO artists (artist_id, name, popularity)
+VALUES (%s, %s, %s)
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    popularity = VALUES(popularity);
+"""
+
+INSERT_TRACK_ARTIST = """
+INSERT INTO track_artists (track_id, artist_id, artist_order)
+VALUES (%s, %s, %s)
+ON DUPLICATE KEY UPDATE artist_order = VALUES(artist_order);
 """
 
 INSERT_LISTEN = """
@@ -82,14 +110,13 @@ def main():
 
     # fetch recent plays
     recent = sp.current_user_recently_played(limit=50)
-
     new_items = []
+    track_ids = [] # for audio features
 
     for item in recent["items"]:
         played_at = datetime.fromisoformat(
             item["played_at"].replace("Z", "+00:00")
         )
-
         if last_played_at is None or played_at > last_played_at:
             new_items.append((item, played_at))
 
@@ -100,17 +127,45 @@ def main():
     for item, played_at in new_items:
         track = item["track"]
 
+        # insert album
+        album = track["album"]
+        cursor.execute(
+            INSERT_ALBUM,
+            (
+                album["id"],
+                album["name"],
+                album.get("release_date"),
+                album.get("total_tracks"),
+                album.get("album_type")
+            ),
+        )
+
         # insert track
         cursor.execute(
             INSERT_TRACK,
             (
                 track["id"],
                 track["name"],
+                album["id"],
                 track["duration_ms"],
                 track["explicit"],
                 track["popularity"],
             ),
         )
+
+        # insert artists and link track_artists
+        for i, artist in enumerate(track["artists"]):
+            cursor.execute(
+                INSERT_ARTIST,
+                (artist["id"], artist["name"], artist.get("popularity"))
+            )
+            cursor.execute(
+                INSERT_TRACK_ARTIST,
+                (track["id"], artist["id"], i)
+            )
+
+
+        track_ids.append(track["id"])
 
         # insert listen
         cursor.execute(
@@ -122,10 +177,12 @@ def main():
             ),
         )
 
+        #TODO audio features
+
     # update ingestion state
     if new_items:
         newest_played_at = max(p for _, p in new_items)
-    cursor.execute(UPDATE_LAST_PLAYED, (newest_played_at,))
+        cursor.execute(UPDATE_LAST_PLAYED, (newest_played_at,))
 
     conn.commit()
     cursor.close()
