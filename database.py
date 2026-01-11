@@ -105,7 +105,7 @@ index1 = f"""CREATE INDEX idx_listens_played_at ON listens(played_at);"""
 index2 = f"""CREATE INDEX idx_listens_track ON listens(track_id);"""
 
 if __name__ == "__main__":
-    pwd = os.environ.get('DB_PWD')
+    pwd = os.environ.get('MYSQL_PWD')
     db = mysql.connector.connect(
         host="localhost",
         user="root",
