@@ -16,7 +16,7 @@ def create_tables(cursor):
 
 
 artists_table = f"""
-    CREATE TABLE artists (
+    CREATE TABLE IF NOT EXISTS artists (
         artist_id VARCHAR(32) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         popularity TINYINT,
@@ -24,8 +24,8 @@ artists_table = f"""
     );
     """
 
-albums_table = f"""
-    CREATE TABLE albums (
+albums_table = """
+    CREATE TABLE IF NOT EXISTS albums (
         album_id VARCHAR(32) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         release_date DATE,
@@ -35,8 +35,9 @@ albums_table = f"""
     );
 """
 
+
 tracks_table = f"""
-    CREATE TABLE tracks (
+    CREATE TABLE IF NOT EXISTS tracks (
         track_id VARCHAR(32) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         album_id VARCHAR(32),
@@ -45,11 +46,12 @@ tracks_table = f"""
         popularity TINYINT,
         fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (album_id) REFERENCES albums(album_id)
+            ON DELETE SET NULL ON UPDATE CASCADE
     );
 """
 
 track_artists_table = f"""
-    CREATE TABLE track_artists (
+    CREATE TABLE IF NOT EXISTS track_artists (
         track_id VARCHAR(32),
         artist_id VARCHAR(32),
         artist_order TINYINT,
@@ -61,7 +63,7 @@ track_artists_table = f"""
 """
 
 audio_features_table = f"""
-    CREATE TABLE audio_features (
+    CREATE TABLE IF NOT EXISTS audio_features (
         track_id VARCHAR(32) PRIMARY KEY,
 
         danceability FLOAT,
@@ -106,13 +108,14 @@ index2 = f"""CREATE INDEX idx_listens_track ON listens(track_id);"""
 
 if __name__ == "__main__":
     pwd = os.environ.get('MYSQL_PWD')
+    user = os.environ.get('MYSQL_USER')
     db = mysql.connector.connect(
         host="localhost",
-        user="root",
+        user=user,
         password=pwd
     )
     cursor = db.cursor()
-    cursor.execute("USE spotify")
+    cursor.execute("USE spotify_stats_2026")
     create_tables(cursor)
     cursor.execute("SHOW TABLES")
     result = cursor.fetchall()
