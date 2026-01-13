@@ -1,7 +1,3 @@
-# this should run every hour
-# fetch the tracks played since previous timestamp, max 50
-# store in database
-# store new timestamp
 from dotenv import load_dotenv
 load_dotenv()
 
