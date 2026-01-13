@@ -27,8 +27,9 @@ sp = spotipy.Spotify(
     )
 )
 
-# database connection
+# helper functions 
 
+# db connection
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -36,6 +37,20 @@ def get_db_connection():
         password=os.environ["MYSQL_PWD"],
         database="spotify_stats_2026"
     )
+
+def normalize_release_date(album):
+    date = album.get("release_date")
+    precision = album.get("release_date_precision")
+
+    if not date:
+        return None
+    
+    if precision == "year":
+        return f"{date}-01-01"
+    elif precision == "month":
+        return f"{date}-01"
+    else:
+        return date
 
 # SQL statements
 
@@ -134,7 +149,8 @@ def main():
             (
                 album["id"],
                 album["name"],
-                album.get("release_date"),
+                # album.get("release_date"),
+                normalize_release_date(album),
                 album.get("total_tracks"),
                 album.get("album_type")
             ),
